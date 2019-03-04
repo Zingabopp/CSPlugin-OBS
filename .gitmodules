@@ -1,0 +1,3 @@
+[submodule "CSPlugin-OBS/libs/obs-websocket-dotnet"]
+	path = CSPlugin-OBS/libs/obs-websocket-dotnet
+	url = git@github.com:zingabopp/obs-websocket-dotnet.git
