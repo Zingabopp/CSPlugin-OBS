@@ -9,7 +9,7 @@ using System.Runtime.InteropServices;
 [assembly: AssemblyDescription("")]
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("")]
-[assembly: AssemblyProduct("CSPlugin-OBS")]
+[assembly: AssemblyProduct("OBSPlugin")]
 [assembly: AssemblyCopyright("Copyright ©  2019")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
@@ -20,7 +20,7 @@ using System.Runtime.InteropServices;
 [assembly: ComVisible(false)]
 
 // The following GUID is for the ID of the typelib if this project is exposed to COM
-[assembly: Guid("55a2afed-4a99-49e6-a184-12bbde77b3ff")]
+[assembly: Guid("b0d86127-46b1-43f2-92eb-c1dc9aead58d")]
 
 // Version information for an assembly consists of the following four values:
 //
