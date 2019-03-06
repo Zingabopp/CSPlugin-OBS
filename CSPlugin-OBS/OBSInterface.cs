@@ -57,13 +57,16 @@ namespace CSPluginOBS
             Console.WriteLine("Starting OBSInterface plugin");
             _obs = new OBSWebsocket();
             _obs.WSTimeout = new TimeSpan(0, 0, 5);
+            
             _obs.Connected += onConnect;
             _obs.RecordingStateChanged += onRecordingStateChange;
             TryConnect(-1);
-            _obs.StreamStatus += _obs_StreamStatus;
+            
+            /*
             _commands = new Dictionary<string, Action<string>> { { "STARTREC", TryStartRecording } };
             _commands["STARTREC"]("");
             _commands["STARTREC"]("test");
+            */
         }
 
         public void OnMessage(object sender, MessageData e)
@@ -112,7 +115,7 @@ namespace CSPluginOBS
 
         public OBSInterface()
         {
-            //Console.WriteLine("Creating new OBSPlugin");
+            Console.WriteLine("Creating new OBSPlugin");
         }
 
 
@@ -167,7 +170,14 @@ namespace CSPluginOBS
                 Console.WriteLine($"Attempting to connect to OBS ({conAttempts})...");
                 if (!isConnected && ((conAttempts < maxAttempts) || infiniteAttempts))
                 {
-                    _obs.Connect("ws://localhost:4444", "");
+                    try
+                    {
+                        _obs.Connect("ws://localhost:4444", "");
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine("OBS Connection failed...");
+                    }
                     if (!isConnected && ((conAttempts <= maxAttempts) || infiniteAttempts))
                     {
                         //Console.WriteLine($"Failed to connect to OBS ({conAttempts})...");
@@ -188,6 +198,7 @@ namespace CSPluginOBS
             Console.WriteLine($"Connected to OBS version {versionInfo.OBSStudioVersion}");
 
             _obs.RecordingStateChanged += onRecordingStateChange;
+            _obs.StreamStatus += _obs_StreamStatus;
             _obs.Disconnected += onDisconnect;
 
         }
@@ -196,6 +207,7 @@ namespace CSPluginOBS
         {
             Console.WriteLine("OBS disconnected");
             _obs.RecordingStateChanged -= onRecordingStateChange;
+            _obs.StreamStatus -= _obs_StreamStatus;
             _obs.Disconnected -= onDisconnect;
             TryConnect();
         }

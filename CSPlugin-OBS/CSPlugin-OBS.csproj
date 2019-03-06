@@ -55,4 +55,7 @@
     </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <PropertyGroup>
+    <PostBuildEvent>copy /Y "$(TargetFileName)" "$(ProjectDir)$(OutDir)Plugins"</PostBuildEvent>
+  </PropertyGroup>
 </Project>
