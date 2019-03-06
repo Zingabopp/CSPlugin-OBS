@@ -27,25 +27,30 @@ namespace CSPluginOBS
                     return false;
             }
         }
+        private Dictionary<string, Action<string>> _commands;
+        #region Command Keys
+        public const string Key_ = "";
+        #region Actions
+        public const string Key_StartRecord = "STARTREC";
+        public const string Key_StopRecord = "STOPREC";
+        #endregion
+
+        #region Gets
+        public const string Key_RecordStatus = "RECSTATUS";
+        public const string Key_GetStreamStatus = "GETSTREAMSTATUS";
+        public const string Key_OBSStatus = "OBSSTATUS";
+        public const string Key_GetRecFileFormat = "GETRECFILEFMT";
+        #endregion
+
+        #region Sets
+        public const string Key_SetRecFileFormat = "SETRECFILEFMT";
+        #endregion
+        
+        #endregion Command Keys
+        #region ICommandPlugin
         public string PluginName { get { return "OBSControl"; } }
 
         public List<string> Commands { get { return new List<string>(); } }
-
-        public bool IsRecording
-        {
-            get
-            {
-                if (isConnected)
-                    return _obs.GetStreamingStatus().IsRecording;
-                else
-                    return false;
-            }
-        }
-
-        public OBSInterface()
-        {
-            //Console.WriteLine("Creating new OBSPlugin");
-        }
 
         public void Start()
         {
@@ -56,45 +61,9 @@ namespace CSPluginOBS
             _obs.RecordingStateChanged += onRecordingStateChange;
             TryConnect(-1);
             _obs.StreamStatus += _obs_StreamStatus;
-        }
-
-        private void _obs_StreamStatus(OBSWebsocket sender, StreamStatus status)
-        {
-            _curStatus = status;
-            PrintStatus();
-        }
-
-        private void PrintStatus()
-        {
-            Console.WriteLine($"  FPS: {_curStatus.FPS}\n  Dropped Frames: {_curStatus.DroppedFrames}\n  Strain: {_curStatus.Strain}");
-        }
-
-        private void TryStartRecording()
-        {
-            if (!IsRecording)
-                _obs.StartRecording();
-            else
-            {
-                _obs.StopRecording();
-                Timer startTimer = new Timer(50);
-                startTimer.AutoReset = true;
-                startTimer.Elapsed += (source, e) => {
-                    Console.WriteLine("OBS failed to start recording, retrying");
-                    if (!IsRecording)
-                    {
-                        _obs.StartRecording();
-                    }
-                    if (recState == OutputState.Started || recState == OutputState.Starting)
-                    {
-                        Console.WriteLine("Recording started successfully");
-                        ((Timer) source).AutoReset = false;
-                        ((Timer) source).Stop();
-                    }
-                };
-                startTimer.Start();
-
-            }
-
+            _commands = new Dictionary<string, Action<string>> { { "STARTREC", TryStartRecording } };
+            _commands["STARTREC"]("");
+            _commands["STARTREC"]("test");
         }
 
         public void OnMessage(object sender, MessageData e)
@@ -124,6 +93,66 @@ namespace CSPluginOBS
                     ;
                 }
             }
+        }
+
+        public event Action<MessageData> MessageReady;
+
+        #endregion
+
+        public bool IsRecording
+        {
+            get
+            {
+                if (isConnected)
+                    return _obs.GetStreamingStatus().IsRecording;
+                else
+                    return false;
+            }
+        }
+
+        public OBSInterface()
+        {
+            //Console.WriteLine("Creating new OBSPlugin");
+        }
+
+
+        private void _obs_StreamStatus(OBSWebsocket sender, StreamStatus status)
+        {
+            _curStatus = status;
+            PrintStatus();
+        }
+
+        private void PrintStatus()
+        {
+            Console.WriteLine($"  FPS: {_curStatus.FPS}\n  Dropped Frames: {_curStatus.DroppedFrames}\n  Strain: {_curStatus.Strain}");
+        }
+
+        private void TryStartRecording(string fileNameFormat = "")
+        {
+            if (!IsRecording)
+                _obs.StartRecording();
+            else
+            {
+                _obs.StopRecording();
+                Timer startTimer = new Timer(50);
+                startTimer.AutoReset = true;
+                startTimer.Elapsed += (source, e) => {
+                    Console.WriteLine("OBS failed to start recording, retrying");
+                    if (!IsRecording)
+                    {
+                        _obs.StartRecording();
+                    }
+                    if (recState == OutputState.Started || recState == OutputState.Starting)
+                    {
+                        Console.WriteLine("Recording started successfully");
+                        ((Timer) source).AutoReset = false;
+                        ((Timer) source).Stop();
+                    }
+                };
+                startTimer.Start();
+
+            }
+
         }
 
         public void TryConnect(int maxAttempts = 10)
@@ -173,7 +202,6 @@ namespace CSPluginOBS
 
         private static string _lastRecState = "";
 
-        public event Action<MessageData> MessageReady;
 
         private void onRecordingStateChange(OBSWebsocket sender, OutputState newState)
         {
