@@ -189,15 +189,22 @@ namespace CSPluginOBS
                     {
                         _obs.WSTimeout = new TimeSpan(0, 0, 5);
                         _obs.WSDisableLog = true;
-                        _obs.Connect("ws://localhost:4444", "");
+                        string password = $"test";
+                        Logger.Debug($"Attempting to connect to OBS with password {password}");
+                        _obs.Connect("ws://localhost:4444", password );
                     }
-                    catch (Exception ex)
+                    catch (AuthFailureException ex)
                     {
-                        Logger.Debug("OBS Connection failed...");
+                        Logger.Error("OBS connection failed, invalid password");
+                        _obs.Disconnect(); // Needs this to disconnect when authentication fails
+                    }
+                    catch (WebSocketSharp.WebSocketException ex)
+                    {
+                        Logger.Exception("OBS Connection failed...", ex);
                     }
                     if (!isConnected && ((conAttempts <= maxAttempts) || infiniteAttempts))
                     {
-                        //Console.WriteLine($"Failed to connect to OBS ({conAttempts})...");
+                        Logger.Trace($"Failed to connect to OBS ({conAttempts})...");
                         conAttempts++;
                         ((Timer) source).Interval = 3000;
                         ((Timer) source).Start();
