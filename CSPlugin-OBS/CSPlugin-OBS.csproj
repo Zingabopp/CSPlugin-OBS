@@ -41,6 +41,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Logger.cs" />
     <Compile Include="OBSInterface.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
@@ -54,8 +55,16 @@
       <Name>obs-websocket-dotnet</Name>
     </ProjectReference>
   </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="WebSocketSharp-netstandard">
+      <Version>1.0.1</Version>
+    </PackageReference>
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>
-    <PostBuildEvent>copy /Y "$(TargetFileName)" "$(ProjectDir)$(OutDir)Plugins"</PostBuildEvent>
+    <PostBuildEvent>copy /Y "$(TargetFileName)" "$(ProjectDir)$(OutDir)Plugins"
+copy /Y "$(TargetDir)$(TargetName).pdb" "$(ProjectDir)$(OutDir)Plugins"
+copy /Y "$(TargetDir)obs-websocket-dotnet.dll" "$(ProjectDir)$(OutDir)Plugins"
+copy /Y "$(TargetDir)obs-websocket-dotnet.pdb" "$(ProjectDir)$(OutDir)Plugins"</PostBuildEvent>
   </PropertyGroup>
 </Project>

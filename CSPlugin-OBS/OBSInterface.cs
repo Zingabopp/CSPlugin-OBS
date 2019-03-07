@@ -52,16 +52,24 @@ namespace CSPluginOBS
 
         public List<string> Commands { get { return new List<string>(); } }
 
+        private void BuildCommands()
+        {
+            _commands = new Dictionary<string, Action<string>> {
+                {Key_StartRecord, TryStartRecording },
+                {Key_StopRecord, TryStopRecording }
+            };
+        }
+
         public void Start()
         {
-            Console.WriteLine("Starting OBSInterface plugin");
+            Logger.LogLevel = LogLevel.Debug;
+            Logger.ShortenSourceName = true;
+            Logger.ShowTime = false;
+            Logger.Info("Starting OBSInterface plugin");
             _obs = new OBSWebsocket();
-            _obs.WSTimeout = new TimeSpan(0, 0, 5);
-            
             _obs.Connected += onConnect;
             _obs.RecordingStateChanged += onRecordingStateChange;
             TryConnect(-1);
-            
             /*
             _commands = new Dictionary<string, Action<string>> { { "STARTREC", TryStartRecording } };
             _commands["STARTREC"]("");
@@ -71,31 +79,10 @@ namespace CSPluginOBS
 
         public void OnMessage(object sender, MessageData e)
         {
-            Console.WriteLine($"{e.Source} says: {e.Data}");
-            if (e.Data == "GameCore" && (!IsRecording || isStopping))
-            {
-                if (isStopping)
-                {
-                    _obs.StopRecording();
-                    stopTimer.Stop();
-                }
-                TryStartRecording();
-            }
-            else
-            {
-                if (IsRecording)
-                {
-                    isStopping = true;
-                    stopTimer = new Timer(3000);
-                    stopTimer.AutoReset = false;
-                    stopTimer.Elapsed += (source, eea) => {
-                        if (IsRecording)
-                            _obs.StopRecording();
-                    };
-                    stopTimer.Start();
-                    ;
-                }
-            }
+            Logger.Trace($"{e.Source} says: {e.Data}");
+
+            if (_commands.ContainsKey(e.Flag))
+                _commands[e.Flag](e.Data);
         }
 
         public event Action<MessageData> MessageReady;
@@ -115,7 +102,7 @@ namespace CSPluginOBS
 
         public OBSInterface()
         {
-            Console.WriteLine("Creating new OBSPlugin");
+            Logger.Debug("Creating new OBSPlugin");
         }
 
 
@@ -127,11 +114,16 @@ namespace CSPluginOBS
 
         private void PrintStatus()
         {
-            Console.WriteLine($"  FPS: {_curStatus.FPS}\n  Dropped Frames: {_curStatus.DroppedFrames}\n  Strain: {_curStatus.Strain}");
+            Logger.Trace($"  FPS: {_curStatus.FPS}\n  Dropped Frames: {_curStatus.DroppedFrames}\n  Strain: {_curStatus.Strain}");
         }
 
         private void TryStartRecording(string fileNameFormat = "")
         {
+            if (isStopping)
+            {
+                _obs.StopRecording();
+                stopTimer.Stop();
+            }
             if (!IsRecording)
                 _obs.StartRecording();
             else
@@ -140,14 +132,14 @@ namespace CSPluginOBS
                 Timer startTimer = new Timer(50);
                 startTimer.AutoReset = true;
                 startTimer.Elapsed += (source, e) => {
-                    Console.WriteLine("OBS failed to start recording, retrying");
+                    Logger.Debug("OBS failed to start recording, retrying");
                     if (!IsRecording)
                     {
                         _obs.StartRecording();
                     }
                     if (recState == OutputState.Started || recState == OutputState.Starting)
                     {
-                        Console.WriteLine("Recording started successfully");
+                        Logger.Info("Recording started successfully");
                         ((Timer) source).AutoReset = false;
                         ((Timer) source).Stop();
                     }
@@ -158,25 +150,50 @@ namespace CSPluginOBS
 
         }
 
-        public void TryConnect(int maxAttempts = 10)
+        private void TryStopRecording(string stopDelay = "3000")
+        {
+            int tryDelay;
+            int delay = 3000;
+            if (int.TryParse(stopDelay, out tryDelay))
+            {
+                Logger.Debug($"TryStopRecording passed delay of {stopDelay}");
+                delay = tryDelay;
+            }
+
+            if (IsRecording)
+            {
+                isStopping = true;
+                stopTimer = new Timer(delay);
+                stopTimer.AutoReset = false;
+                stopTimer.Elapsed += (source, eea) => {
+                    if (IsRecording)
+                        _obs.StopRecording();
+                };
+                stopTimer.Start();
+                ;
+            }
+        }
+        public void TryConnect(int maxAttempts = -1)
         {
             conAttempts = 1;
             bool infiniteAttempts = (maxAttempts == -1) ? true : false;
-            Timer timer = new Timer(1);
+            Timer timer = new Timer(10);
             timer.AutoReset = false;
-
+            Logger.Trace("OBSInterface: In TryConnect");
             timer.Elapsed += (source, e) => {
 
-                Console.WriteLine($"Attempting to connect to OBS ({conAttempts})...");
+                Logger.Info($"Attempting to connect to OBS ({conAttempts})...");
                 if (!isConnected && ((conAttempts < maxAttempts) || infiniteAttempts))
                 {
                     try
                     {
+                        _obs.WSTimeout = new TimeSpan(0, 0, 5);
+                        _obs.WSDisableLog = true;
                         _obs.Connect("ws://localhost:4444", "");
                     }
                     catch (Exception ex)
                     {
-                        Console.WriteLine("OBS Connection failed...");
+                        Logger.Debug("OBS Connection failed...");
                     }
                     if (!isConnected && ((conAttempts <= maxAttempts) || infiniteAttempts))
                     {
@@ -189,13 +206,14 @@ namespace CSPluginOBS
 
             };
             timer.Start();
+            Logger.Trace("OBSInterface: In TryConnect, after timer.Start()");
         }
 
         private void onConnect(object sender, EventArgs e)
         {
             var versionInfo = _obs.GetVersion();
             var streamStatus = _obs.GetStreamingStatus();
-            Console.WriteLine($"Connected to OBS version {versionInfo.OBSStudioVersion}");
+            Logger.Info($"Connected to OBS version {versionInfo.OBSStudioVersion}");
 
             _obs.RecordingStateChanged += onRecordingStateChange;
             _obs.StreamStatus += _obs_StreamStatus;
@@ -205,7 +223,7 @@ namespace CSPluginOBS
 
         private void onDisconnect(object sender, EventArgs e)
         {
-            Console.WriteLine("OBS disconnected");
+            Logger.Info("OBS disconnected");
             _obs.RecordingStateChanged -= onRecordingStateChange;
             _obs.StreamStatus -= _obs_StreamStatus;
             _obs.Disconnected -= onDisconnect;
@@ -245,7 +263,7 @@ namespace CSPluginOBS
             }
             if (state != _lastRecState)
             {
-                Console.WriteLine($"Recording state changed: {state}");
+                Logger.Debug($"Recording state changed: {state}");
                 MessageReady(new MessageData(PluginName, "OBSControl", state));
             }
             _lastRecState = state;
