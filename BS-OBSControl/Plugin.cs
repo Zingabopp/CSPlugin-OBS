@@ -9,6 +9,7 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 using IllusionPlugin;
 using BS_OBSControl.Util;
+using CommandPluginLib;
 
 
 namespace BS_OBSControl
@@ -20,6 +21,7 @@ namespace BS_OBSControl
         public string Version => "0.0.1";
 
         private bool doesCIExist;
+        private bool pluginLoaded;
         private static string _counterPosition = "-1,2,2.5";
         public static string StatusPosition
         {
@@ -30,18 +32,33 @@ namespace BS_OBSControl
         public void OnApplicationStart()
         {
             Logger.LogLevel = LogLevel.Trace;
-            
+            pluginLoaded = false;
+            Logger.Debug($"Starting...");
             //Checks if a IPlugin with the name in quotes exists, in case you want to verify a plugin exists before trying to reference it, or change how you do things based on if a plugin is present
             doesCIExist = IllusionInjector.PluginManager.Plugins.Any(x => x.Name == "Command-Interface");
-            if(doesCIExist)
+            if (doesCIExist)
             {
+                Logger.Debug("Command-Interface exists, starting loader");
                 SceneManager.activeSceneChanged += SceneManagerOnActiveSceneChanged;
                 SceneManager.sceneLoaded += SceneManager_sceneLoaded;
-                var ctrlObj = new GameObject(PluginName).AddComponent<OBSControl>();
-                GameObject.DontDestroyOnLoad(ctrlObj);
+                var loader = new GameObject("OBSC_Loader").AddComponent<Loader>();
+                GameObject.DontDestroyOnLoad(loader.gameObject);
+                loader.LoadSuccess += OnLoadSuccess;
+
             }
+            else
+                Logger.Error("Command-Interface not found, unable to start");
             
 
+        }
+
+        public void OnLoadSuccess(GameObject loader, ICommandPlugin server, ICommandPlugin OBSC)
+        {
+            pluginLoaded = true;
+
+            var initMsg = new MessageData(PluginName, "Command-Interface", "REGISTER");
+            server.OnMessage(OBSC, initMsg);
+            GameObject.Destroy(loader);
         }
 
         private void SceneManagerOnActiveSceneChanged(Scene oldScene, Scene newScene)

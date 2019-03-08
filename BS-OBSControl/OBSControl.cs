@@ -69,6 +69,7 @@ namespace BS_OBSControl
             if (newScene.name == "Menu")
             {
                 //Code to execute when entering The Menu
+                Logger.Debug("In menu");
                 TryStopRecording();
 
             }
@@ -76,6 +77,7 @@ namespace BS_OBSControl
             if (newScene.name == "GameCore")
             {
                 //Code to execute when entering actual gameplay
+                Logger.Debug("In GameCore");
                 TryStartRecording();
 
             }
