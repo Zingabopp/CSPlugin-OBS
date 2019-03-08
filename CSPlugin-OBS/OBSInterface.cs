@@ -50,14 +50,14 @@ namespace CSPluginOBS
         #region ICommandPlugin
         public string PluginName { get { return "OBSControl"; } }
 
-        private Dictionary<string, Action<string>> _commands;
+        private Dictionary<string, Action<object, string>> _commands;
 
-        public Dictionary<string, Action<string>> Commands
+        public Dictionary<string, Action<object, string>> Commands
         {
             get
             {
                 if (_commands == null)
-                    _commands = new Dictionary<string, Action<string>>();
+                    _commands = new Dictionary<string, Action<object, string>>();
                 return _commands;
             }
         }
@@ -93,10 +93,10 @@ namespace CSPluginOBS
             Logger.Trace($"{e.Source} says: {e.Data}");
 
             if (_commands.ContainsKey(e.Flag))
-                _commands[e.Flag](e.Data);
+                _commands[e.Flag](sender, e.Data);
         }
 
-        public event Action<MessageData> MessageReady;
+        public event Action<object, MessageData> MessageReady;
 
         #endregion
 
@@ -128,7 +128,7 @@ namespace CSPluginOBS
             Logger.Trace($"  FPS: {_curStatus.FPS}\n  Dropped Frames: {_curStatus.DroppedFrames}\n  Strain: {_curStatus.Strain}");
         }
 
-        private void TryStartRecording(string fileNameFormat = "")
+        private void TryStartRecording(object sender, string fileNameFormat = "")
         {
             if (isStopping)
             {
@@ -161,7 +161,7 @@ namespace CSPluginOBS
 
         }
 
-        private void TryStopRecording(string stopDelay = "3000")
+        private void TryStopRecording(object sender, string stopDelay = "3000")
         {
             int tryDelay;
             int delay = 3000;
@@ -204,7 +204,7 @@ namespace CSPluginOBS
                         Logger.Debug($"Attempting to connect to OBS with password {password}");
                         _obs.Connect("ws://localhost:4444", password );
                     }
-                    catch (AuthFailureException ex)
+                    catch (AuthFailureException)
                     {
                         Logger.Error("OBS connection failed, invalid password");
                         _obs.Disconnect(); // Needs this to disconnect when authentication fails
@@ -282,7 +282,7 @@ namespace CSPluginOBS
             if (state != _lastRecState)
             {
                 Logger.Debug($"Recording state changed: {state}");
-                MessageReady(new MessageData(PluginName, "OBSControl", newState.ToString(), Key_RecordStatus));
+                MessageReady(this, new MessageData(PluginName, "OBSControl", newState.ToString(), Key_RecordStatus));
             }
             _lastRecState = state;
         }

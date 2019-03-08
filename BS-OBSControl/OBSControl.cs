@@ -12,21 +12,27 @@ namespace BS_OBSControl
 {
     class OBSControl : MonoBehaviour , ICommandPlugin
     {
-        public string PluginName => Plugin.PluginName;
-        public const string Counterpart = "OBSControl";
-        private Dictionary<string, Action<string>> _commands;
+        public string PluginName => Plugin.PluginName; // Name that identifies this plugin as a source/destination
+        public const string Counterpart = "OBSControl"; // Destination plugin on Command-Server
+        private Dictionary<string, Action<object, string>> _commands;
 
-        public Dictionary<string, Action<string>> Commands
+        /// <summary>
+        /// Dictionary of commands this plugin can receive.
+        /// </summary>
+        public Dictionary<string, Action<object,string>> Commands
         {
             get
             {
                 if (_commands == null)
-                    _commands = new Dictionary<string, Action<string>>();
+                    _commands = new Dictionary<string, Action<object, string>>();
                 return _commands;
             }
         }
 
-        public event Action<MessageData> MessageReady;
+        /// <summary>
+        /// Messages to be sent to the server.
+        /// </summary>
+        public event Action<object, MessageData> MessageReady;
 
         public void Initialize()
         {
@@ -37,15 +43,18 @@ namespace BS_OBSControl
         private void BuildCommands()
         {
             Logger.Trace("BuildCommands()");
-            Commands.AddSafe(CommandKeys.Key_StartRecord, TryStartRecording);
-            Commands.AddSafe(CommandKeys.Key_StopRecord, TryStopRecording);
+            //Commands.AddSafe(CommandKeys.Key_StartRecord, TryStartRecording);
+            //Commands.AddSafe(CommandKeys.Key_StopRecord, TryStopRecording);
             Commands.AddSafe(CommandKeys.Key_RecordStatus, OnRecordStatusChange);
         }
 
         public void OnMessage(object sender, MessageData e)
         {
+            Logger.Trace($"Received message:\n{e.ToString()}");
             if (e.Destination == PluginName)
-                Commands[e.Flag](e.Data);
+                Commands[e.Flag](sender, e.Data);
+            else
+                Logger.Debug($"Discarding message, we are not the destination");
         }
 
         public void Awake()
@@ -81,18 +90,18 @@ namespace BS_OBSControl
                 TryStartRecording();
 
             }
-
-
         }
 
+        
         public void TryStartRecording(string fileFormat = "")
         {
+            
             var message = new MessageData(PluginName,
                 Counterpart,
                 fileFormat,
                 CommandKeys.Key_StartRecord);
-
-            MessageReady(message);
+            Logger.Debug($"TryStartRecording, MessageReady:\n{message.ToString(3)}");
+            MessageReady(this, message);
         }
 
         public void TryStopRecording(string renameTo = "")
@@ -101,14 +110,17 @@ namespace BS_OBSControl
                 Counterpart,
                 renameTo,
                 CommandKeys.Key_StopRecord);
-
-            MessageReady(message);
+            Logger.Debug($"TryStopRecording, MessageReady:\n{message.ToString(3)}");
+            MessageReady(this, message);
         }
 
-        public void OnRecordStatusChange(string status)
+        #region Receivable Commands
+        public void OnRecordStatusChange(object sender, string status)
         {
+            Logger.Debug($"Record status change: {status}");
             StatusText.text = status;
         }
+        #endregion
 
         #region Status TMPro
         public static int numFails = 0;
@@ -166,7 +178,9 @@ namespace BS_OBSControl
 
         public TextMeshProUGUI CreateStatusText(string text, float yOffset = 0)
         {
+            Logger.Debug("OBSStatusText doesn't exist, creating it");
             var textGO = new GameObject();
+            GameObject.DontDestroyOnLoad(textGO);
             textGO.transform.position = StringToVector3(Plugin.StatusPosition);
             textGO.transform.eulerAngles = new Vector3(0f, 0f, 0f);
             textGO.transform.localScale = new Vector3(0.01f, 0.01f, 0.01f);
@@ -198,7 +212,7 @@ namespace BS_OBSControl
                     float.Parse(sAry[0]),
                     float.Parse(sAry[1]),
                     float.Parse(sAry[2]));
-                Logger.Debug("StringToVector3: {0}={1}", vStr, retVal.ToString());
+                Logger.Debug($"StringToVector3: {vStr}={retVal.ToString()}");
                 return retVal;
             }
             catch (Exception ex)

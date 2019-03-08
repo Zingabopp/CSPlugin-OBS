@@ -21,18 +21,16 @@ namespace BS_OBSControl
         public string Version => "0.0.1";
 
         private bool doesCIExist;
-        private bool pluginLoaded;
-        private static string _counterPosition = "-1,2,2.5";
+        private static string _statusPosition = "0,.2,3";//"-1,2,2.5";
         public static string StatusPosition
         {
-            get { return _counterPosition; }
-            set { _counterPosition = value; }
+            get { return _statusPosition; }
+            set { _statusPosition = value; }
         }
 
         public void OnApplicationStart()
         {
             Logger.LogLevel = LogLevel.Trace;
-            pluginLoaded = false;
             Logger.Debug($"Starting...");
             //Checks if a IPlugin with the name in quotes exists, in case you want to verify a plugin exists before trying to reference it, or change how you do things based on if a plugin is present
             doesCIExist = IllusionInjector.PluginManager.Plugins.Any(x => x.Name == "Command-Interface");
@@ -54,9 +52,7 @@ namespace BS_OBSControl
 
         public void OnLoadSuccess(GameObject loader, ICommandPlugin server, ICommandPlugin OBSC)
         {
-            pluginLoaded = true;
-
-            var initMsg = new MessageData(PluginName, "Command-Interface", "REGISTER");
+            var initMsg = new MessageData(PluginName, "Command-Interface", Plugin.PluginName, "REGISTER");
             server.OnMessage(OBSC, initMsg);
             GameObject.Destroy(loader);
         }
