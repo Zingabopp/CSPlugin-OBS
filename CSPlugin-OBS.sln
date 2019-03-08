@@ -9,6 +9,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CommandPluginLib", "CSPlugi
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "obs-websocket-dotnet", "CSPlugin-OBS\libs\obs-websocket-dotnet\obs-websocket-dotnet\obs-websocket-dotnet.csproj", "{C8668815-F21E-49C0-8F1A-58BC698153AF}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BS-OBSControl", "BS-OBSControl\BS-OBSControl.csproj", "{FBF0CF80-F613-4D64-B882-7EDFA46495C3}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -27,6 +29,10 @@ Global
 		{C8668815-F21E-49C0-8F1A-58BC698153AF}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{C8668815-F21E-49C0-8F1A-58BC698153AF}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{C8668815-F21E-49C0-8F1A-58BC698153AF}.Release|Any CPU.Build.0 = Release|Any CPU
+		{FBF0CF80-F613-4D64-B882-7EDFA46495C3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{FBF0CF80-F613-4D64-B882-7EDFA46495C3}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{FBF0CF80-F613-4D64-B882-7EDFA46495C3}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{FBF0CF80-F613-4D64-B882-7EDFA46495C3}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

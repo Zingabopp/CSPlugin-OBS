@@ -27,7 +27,6 @@ namespace CSPluginOBS
                     return false;
             }
         }
-        private Dictionary<string, Action<string>> _commands;
         #region Command Keys
         public const string Key_ = "";
         #region Actions
@@ -47,25 +46,37 @@ namespace CSPluginOBS
         #endregion
         
         #endregion Command Keys
+
         #region ICommandPlugin
         public string PluginName { get { return "OBSControl"; } }
 
-        public List<string> Commands { get { return new List<string>(); } }
+        private Dictionary<string, Action<string>> _commands;
+
+        public Dictionary<string, Action<string>> Commands
+        {
+            get
+            {
+                if (_commands == null)
+                    _commands = new Dictionary<string, Action<string>>();
+                return _commands;
+            }
+        }
 
         private void BuildCommands()
         {
-            _commands = new Dictionary<string, Action<string>> {
-                {Key_StartRecord, TryStartRecording },
-                {Key_StopRecord, TryStopRecording }
-            };
+
+            Commands.Add(Key_StartRecord, TryStartRecording);
+            Commands.Add(Key_StopRecord, TryStopRecording);
+
         }
 
-        public void Start()
+        public void Initialize()
         {
             Logger.LogLevel = LogLevel.Debug;
             Logger.ShortenSourceName = true;
             Logger.ShowTime = false;
             Logger.Info("Starting OBSInterface plugin");
+            BuildCommands();
             _obs = new OBSWebsocket();
             _obs.Connected += onConnect;
             _obs.RecordingStateChanged += onRecordingStateChange;
@@ -271,7 +282,7 @@ namespace CSPluginOBS
             if (state != _lastRecState)
             {
                 Logger.Debug($"Recording state changed: {state}");
-                MessageReady(new MessageData(PluginName, "OBSControl", state));
+                MessageReady(new MessageData(PluginName, "OBSControl", newState.ToString(), Key_RecordStatus));
             }
             _lastRecState = state;
         }
