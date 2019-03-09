@@ -70,6 +70,9 @@ namespace CSPluginOBS
 
         }
 
+        /// <summary>
+        /// Initialize the plugin and start trying to connect to OBS
+        /// </summary>
         public void Initialize()
         {
             Logger.LogLevel = LogLevel.Debug;
@@ -81,13 +84,13 @@ namespace CSPluginOBS
             _obs.Connected += onConnect;
             _obs.RecordingStateChanged += onRecordingStateChange;
             TryConnect(-1);
-            /*
-            _commands = new Dictionary<string, Action<string>> { { "STARTREC", TryStartRecording } };
-            _commands["STARTREC"]("");
-            _commands["STARTREC"]("test");
-            */
         }
-
+        
+        /// <summary>
+        /// Received message from the server.
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
         public void OnMessage(object sender, MessageData e)
         {
             Logger.Trace($"{e.Source} says: {e.Data}");
@@ -96,10 +99,16 @@ namespace CSPluginOBS
                 _commands[e.Flag](sender, e.Data);
         }
 
+        /// <summary>
+        /// Message ready to send to Beat Saber.
+        /// </summary>
         public event Action<object, MessageData> MessageReady;
 
         #endregion
 
+        /// <summary>
+        /// Check if recording.
+        /// </summary>
         public bool IsRecording
         {
             get

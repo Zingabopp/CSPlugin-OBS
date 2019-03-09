@@ -37,7 +37,6 @@ namespace BS_OBSControl
         public void Initialize()
         {
             Logger.Trace("OBSControl Initialize()");
-            BuildCommands();
         }
 
         private void BuildCommands()
