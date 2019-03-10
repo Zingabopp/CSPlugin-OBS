@@ -21,7 +21,7 @@ namespace BS_OBSControl
         public string Version => "0.0.1";
 
         private bool doesCIExist;
-        private static string _statusPosition = "0,.2,3";//"-1,2,2.5";
+        private static string _statusPosition = "0,3.2,3";//"-1,2,2.5";
         public static string StatusPosition
         {
             get { return _statusPosition; }
@@ -30,7 +30,7 @@ namespace BS_OBSControl
 
         public void OnApplicationStart()
         {
-            Logger.LogLevel = LogLevel.Trace;
+            Logger.LogLevel = LogLevel.Error;
             Logger.Debug($"Starting...");
             //Checks if a IPlugin with the name in quotes exists, in case you want to verify a plugin exists before trying to reference it, or change how you do things based on if a plugin is present
             doesCIExist = IllusionInjector.PluginManager.Plugins.Any(x => x.Name == "Command-Interface");

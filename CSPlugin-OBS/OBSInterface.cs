@@ -75,7 +75,7 @@ namespace CSPluginOBS
         /// </summary>
         public void Initialize()
         {
-            Logger.LogLevel = LogLevel.Debug;
+            Logger.LogLevel = LogLevel.Error;
             Logger.ShortenSourceName = true;
             Logger.ShowTime = false;
             Logger.Info("Starting OBSInterface plugin");
