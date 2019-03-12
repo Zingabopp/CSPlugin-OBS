@@ -85,6 +85,7 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="GameStatus.cs" />
     <Compile Include="Loader.cs" />
     <Compile Include="OBSControl.cs" />
     <Compile Include="Plugin.cs" />

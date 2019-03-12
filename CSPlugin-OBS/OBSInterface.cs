@@ -44,7 +44,7 @@ namespace CSPluginOBS
         #region Sets
         public const string Key_SetRecFileFormat = "SETRECFILEFMT";
         #endregion
-        
+
         #endregion Command Keys
 
         #region ICommandPlugin
@@ -67,6 +67,8 @@ namespace CSPluginOBS
 
             Commands.Add(Key_StartRecord, TryStartRecording);
             Commands.Add(Key_StopRecord, TryStopRecording);
+            Commands.Add(Key_SetRecFileFormat, SetRecFileFormat);
+            Commands.Add(Key_GetRecFileFormat, ReqRecFileFormat);
 
         }
 
@@ -75,17 +77,18 @@ namespace CSPluginOBS
         /// </summary>
         public void Initialize()
         {
-            Logger.LogLevel = LogLevel.Error;
+            Logger.LogLevel = LogLevel.Info;
             Logger.ShortenSourceName = true;
             Logger.ShowTime = false;
             Logger.Info("Starting OBSInterface plugin");
+  
             BuildCommands();
             _obs = new OBSWebsocket();
             _obs.Connected += onConnect;
             _obs.RecordingStateChanged += onRecordingStateChange;
             TryConnect(-1);
         }
-        
+
         /// <summary>
         /// Received message from the server.
         /// </summary>
@@ -139,6 +142,7 @@ namespace CSPluginOBS
 
         private void TryStartRecording(object sender, string fileNameFormat = "")
         {
+            SetRecFileFormat(this, fileNameFormat);
             if (isStopping)
             {
                 _obs.StopRecording();
@@ -211,7 +215,7 @@ namespace CSPluginOBS
                         _obs.WSDisableLog = true;
                         string password = $"test";
                         Logger.Debug($"Attempting to connect to OBS with password {password}");
-                        _obs.Connect("ws://localhost:4444", password );
+                        _obs.Connect("ws://localhost:4444", password);
                     }
                     catch (AuthFailureException)
                     {
@@ -238,6 +242,7 @@ namespace CSPluginOBS
 
         private void onConnect(object sender, EventArgs e)
         {
+            Logger.Trace("OnConnect()");
             var versionInfo = _obs.GetVersion();
             var streamStatus = _obs.GetStreamingStatus();
             Logger.Info($"Connected to OBS version {versionInfo.OBSStudioVersion}");
@@ -245,6 +250,7 @@ namespace CSPluginOBS
             _obs.RecordingStateChanged += onRecordingStateChange;
             _obs.StreamStatus += _obs_StreamStatus;
             _obs.Disconnected += onDisconnect;
+            TryStartRecording(this);
 
         }
 
@@ -259,6 +265,46 @@ namespace CSPluginOBS
 
         private static string _lastRecState = "";
 
+
+        private void SetRecFileFormat(object sender, string fmt = "%CCYY-%MM-%DD %hh-%mm-%ss")
+        {
+            Logger.Trace($"Setting filename format to {fmt}");
+            if (fmt == "")
+                fmt = "%CCYY-%MM-%DD %hh-%mm-%ss";
+            _obs.SetFilenameFormatting(MakeValidFilename(fmt));
+
+        }
+
+        public static string MakeValidFilename(string text)
+        {
+            text = text.Replace('"', '”'); // U+201D right double quotation mark
+            text = text.Replace('/', '⁄');  // U+2044 fraction slash
+            text = text.Replace('\'', '’'); // U+2019 right single quotation mark
+            text = text.Replace('\\', '_');
+            text = text.Replace('<', '‹');
+            text = text.Replace('>', '›');
+            text = text.Replace('|', '‖');
+            text = text.Replace(':', '⁚');
+            text = text.Replace('*', '⁎');
+            text = text.Replace('?', '？');
+            
+            foreach (char c in System.IO.Path.GetInvalidFileNameChars())
+            {
+                text = text.Replace(c, '_');
+            }
+            return text;
+        }
+
+        private string GetRecFileFormat()
+        {
+            return _obs.GetFilenameFormatting();
+        }
+
+        private void ReqRecFileFormat(object sender, string _)
+        {
+            var msg = new MessageData(PluginName, "OBSControl", GetRecFileFormat(), Key_GetRecFileFormat);
+            MessageReady(this, msg);
+        }
 
         private void onRecordingStateChange(OBSWebsocket sender, OutputState newState)
         {

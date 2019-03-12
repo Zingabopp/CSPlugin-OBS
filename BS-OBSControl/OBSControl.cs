@@ -45,6 +45,7 @@ namespace BS_OBSControl
             //Commands.AddSafe(CommandKeys.Key_StartRecord, TryStartRecording);
             //Commands.AddSafe(CommandKeys.Key_StopRecord, TryStopRecording);
             Commands.AddSafe(CommandKeys.Key_RecordStatus, OnRecordStatusChange);
+            Commands.AddSafe(CommandKeys.Key_GetRecFileFormat, RecRecFileFormat);
         }
 
         public void OnMessage(object sender, MessageData e)
@@ -79,19 +80,18 @@ namespace BS_OBSControl
                 //Code to execute when entering The Menu
                 Logger.Debug("In menu");
                 TryStopRecording();
-
             }
 
             if (newScene.name == "GameCore")
             {
                 //Code to execute when entering actual gameplay
                 Logger.Debug("In GameCore");
-                TryStartRecording();
-
+                var level = GameStatus.LevelInfo;
+                string fileFormat = $"{level.songName}-{level.songAuthorName}";
+                TryStartRecording(fileFormat);
             }
         }
 
-        
         public void TryStartRecording(string fileFormat = "")
         {
             
@@ -118,6 +118,11 @@ namespace BS_OBSControl
         {
             Logger.Debug($"Record status change: {status}");
             StatusText.text = status;
+        }
+
+        public void RecRecFileFormat(object sender, string fmt)
+        {
+            Logger.Debug($"Received file format: {fmt}");
         }
         #endregion
 
