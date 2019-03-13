@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -16,6 +17,10 @@ namespace CSPluginOBS
         private bool isStopping = false;
         private static Timer stopTimer;
         private StreamStatus _curStatus;
+        private string _lastRecFile;
+        private string _lastRecFmt;
+        private const string vidExt = ".mkv";
+        private static string _lastRecState = "";
         private OutputState recState;
         private bool isConnected
         {
@@ -32,6 +37,7 @@ namespace CSPluginOBS
         #region Actions
         public const string Key_StartRecord = "STARTREC";
         public const string Key_StopRecord = "STOPREC";
+        public const string Key_AppendRecName = "APPENDREC";
         #endregion
 
         #region Gets
@@ -69,6 +75,7 @@ namespace CSPluginOBS
             Commands.Add(Key_StopRecord, TryStopRecording);
             Commands.Add(Key_SetRecFileFormat, SetRecFileFormat);
             Commands.Add(Key_GetRecFileFormat, ReqRecFileFormat);
+            Commands.Add(Key_AppendRecName, AppendLastRecFile);
 
         }
 
@@ -81,7 +88,7 @@ namespace CSPluginOBS
             Logger.ShortenSourceName = true;
             Logger.ShowTime = false;
             Logger.Info("Starting OBSInterface plugin");
-  
+
             BuildCommands();
             _obs = new OBSWebsocket();
             _obs.Connected += onConnect;
@@ -197,6 +204,7 @@ namespace CSPluginOBS
                 ;
             }
         }
+
         public void TryConnect(int maxAttempts = -1)
         {
             conAttempts = 1;
@@ -250,8 +258,6 @@ namespace CSPluginOBS
             _obs.RecordingStateChanged += onRecordingStateChange;
             _obs.StreamStatus += _obs_StreamStatus;
             _obs.Disconnected += onDisconnect;
-            TryStartRecording(this);
-
         }
 
         private void onDisconnect(object sender, EventArgs e)
@@ -263,16 +269,58 @@ namespace CSPluginOBS
             TryConnect();
         }
 
-        private static string _lastRecState = "";
-
-
         private void SetRecFileFormat(object sender, string fmt = "%CCYY-%MM-%DD %hh-%mm-%ss")
         {
             Logger.Trace($"Setting filename format to {fmt}");
             if (fmt == "")
                 fmt = "%CCYY-%MM-%DD %hh-%mm-%ss";
+            else
+            {
+                fmt = MakeValidFilename(fmt);
+                var recFolder = _obs.GetRecordingFolder();
+                var fileString = fmt;
+                _lastRecFmt = fmt;
+                var file = new FileInfo(JoinPaths(recFolder, fileString) + vidExt);
+                int index = 2;
+                while (file.Exists)
+                {
+                    fileString = MakeValidFilename(fmt + $" ({index})");
+                    string newString = $"{JoinPaths(recFolder, fileString)}";
+                    file = new FileInfo(newString + vidExt);
+                    index++;
+                }
+                fmt = fileString;
+                _lastRecFile = fileString;
+            }
             _obs.SetFilenameFormatting(MakeValidFilename(fmt));
 
+        }
+
+        private void AppendLastRecFile(object sender, string suffix)
+        {
+            string fileBase = JoinPaths(_obs.GetRecordingFolder().Replace(@"/", @"\"), _lastRecFile);
+            string newFullName = "";
+            var file = new FileInfo(fileBase + vidExt);
+            if (file.Exists)
+            {
+                try
+                {
+                    string newName = _lastRecFmt + MakeValidFilename(suffix);
+                    newFullName = JoinPaths(_obs.GetRecordingFolder().Replace(@"/", @"\"), newName + vidExt);
+                    int index = 2;
+                    var newFile = new FileInfo(newFullName);
+                    while (newFile.Exists)
+                    {
+                        newFullName = JoinPaths(_obs.GetRecordingFolder().Replace(@"/", @"\"), $"{newName}_{index}{vidExt}");
+                    }
+                    file.MoveTo(newFullName);
+                }
+                catch(Exception ex)
+                {
+                    Logger.Exception("Exception in appendfile\n", ex);
+                }
+                
+            }
         }
 
         public static string MakeValidFilename(string text)
@@ -287,12 +335,42 @@ namespace CSPluginOBS
             text = text.Replace(':', '⁚');
             text = text.Replace('*', '⁎');
             text = text.Replace('?', '？');
-            
+            text = text.Replace(' ', '_');
+
             foreach (char c in System.IO.Path.GetInvalidFileNameChars())
             {
                 text = text.Replace(c, '_');
             }
             return text;
+        }
+
+        /// <summary>
+        /// Joins two parts of a path together to correct for whether or not the parts end/start with "\"
+        /// </summary>
+        /// <param name="first"></param>
+        /// <param name="second"></param>
+        /// <returns>A string path from the combined parts</returns>
+        public static string JoinPaths(string first, string second)
+        {
+            if (first == "" | second == "")
+                return first + second;
+            string newPath = first;
+            var endsWithSlash = newPath.EndsWith(@"\");
+            if (endsWithSlash)
+            {
+                // First part ends with "\"
+                if (second.StartsWith(@"\"))
+                    newPath = newPath + second.Substring(1);
+                else
+                    newPath = newPath + second;
+            }
+            else
+                // First part doesn't end with "\"
+                if (second.StartsWith(@"\"))
+                newPath = newPath + second;
+            else
+                newPath = newPath + @"\" + second;
+            return newPath;
         }
 
         private string GetRecFileFormat()

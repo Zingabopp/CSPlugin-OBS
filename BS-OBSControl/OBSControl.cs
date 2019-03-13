@@ -10,16 +10,17 @@ using CommandPluginLib;
 
 namespace BS_OBSControl
 {
-    class OBSControl : MonoBehaviour , ICommandPlugin
+    class OBSControl : MonoBehaviour, ICommandPlugin
     {
         public string PluginName => Plugin.PluginName; // Name that identifies this plugin as a source/destination
         public const string Counterpart = "OBSControl"; // Destination plugin on Command-Server
+        private string appendText = "";
         private Dictionary<string, Action<object, string>> _commands;
 
         /// <summary>
         /// Dictionary of commands this plugin can receive.
         /// </summary>
-        public Dictionary<string, Action<object,string>> Commands
+        public Dictionary<string, Action<object, string>> Commands
         {
             get
             {
@@ -80,21 +81,72 @@ namespace BS_OBSControl
                 //Code to execute when entering The Menu
                 Logger.Debug("In menu");
                 TryStopRecording();
+                //var lvlResults = Resources.FindObjectsOfTypeAll<LevelCompletionResults>().FirstOrDefault();
+
+
             }
 
             if (newScene.name == "GameCore")
             {
                 //Code to execute when entering actual gameplay
                 Logger.Debug("In GameCore");
-                var level = GameStatus.LevelInfo;
-                string fileFormat = $"{level.songName}-{level.songAuthorName}";
+                appendText = "";
+                StartCoroutine(GameStatusSetup());
+                string fileFormat = "";
+                Logger.Debug("Adding OnDidFinish event to PlayFlowCoordinator");
+                try
+                {
+                    var level = GameStatus.LevelInfo;
+                    fileFormat = $"{level.songName}-{level.songAuthorName}";
+                    GameStatus.LevelSetupDataSO.didFinishEvent += OnDidFinish;
+                }
+                catch (Exception ex)
+                {
+                    Logger.Exception("", ex);
+                }
                 TryStartRecording(fileFormat);
             }
         }
 
+        public IEnumerator<WaitUntil> GameStatusSetup()
+        {
+            // TODO: Limit wait by tries/current scene so it doesn't go forever.
+            yield return new WaitUntil(() => !(GameStatus.LevelSetupDataSO == null || GameStatus.GpModSO == null));
+            GameStatus.Setup();
+
+        }
+
+        public void OnDidFinish(StandardLevelSceneSetupDataSO stdLvlSetupDataSO, LevelCompletionResults results)
+        {
+            Logger.Trace("In OnDidFinish");
+            try
+            {
+
+                if (results.levelEndStateType == LevelCompletionResults.LevelEndStateType.Failed)
+                    appendText = "-failed";
+                else
+                {
+
+                    float scorePercent = ((float) results.score / GameStatus.MaxModifiedScore) * 100f;
+                    appendText = $"-{scorePercent.ToString("F2")}{(results.fullCombo ? "-FC" : "")}";
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Exception("Error appending file name", ex);
+            }
+        }
+
+        public void AppendLastRecordingName(string suffix)
+        {
+            var msg = new MessageData(PluginName, Counterpart, suffix, CommandKeys.Key_AppendRecName);
+            Logger.Info($"Attempting to append {suffix} to file name of last recording");
+            MessageReady(this, msg);
+        }
+
         public void TryStartRecording(string fileFormat = "")
         {
-            
+
             var message = new MessageData(PluginName,
                 Counterpart,
                 fileFormat,
@@ -117,6 +169,11 @@ namespace BS_OBSControl
         public void OnRecordStatusChange(object sender, string status)
         {
             Logger.Debug($"Record status change: {status}");
+            if (status.ToLower().Contains("stopped") && !(appendText == ""))
+            {
+                AppendLastRecordingName(appendText);
+                appendText = "";
+            }
             StatusText.text = status;
         }
 
@@ -226,7 +283,7 @@ namespace BS_OBSControl
             }
         }
         #endregion
-        
+
     }
 
     struct CommandKeys
@@ -235,6 +292,7 @@ namespace BS_OBSControl
         #region Actions
         public const string Key_StartRecord = "STARTREC";
         public const string Key_StopRecord = "STOPREC";
+        public const string Key_AppendRecName = "APPENDREC";
         #endregion
 
         #region Gets
