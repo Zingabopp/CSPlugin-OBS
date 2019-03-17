@@ -26,6 +26,11 @@ namespace BS_OBSControl.Util
             obj.GetType().GetMethod(methodName, BindingFlags.Instance | BindingFlags.NonPublic).Invoke(obj, methodParams);
         }
 
+        public static GameplayCoreSceneSetupData GetSceneData(this GameplayCoreSceneSetup obj, string fieldName)
+        {
+            return (GameplayCoreSceneSetupData) obj.GetType().BaseType.GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic).GetValue(obj);
+        }
+
         public static Component CopyComponent(Component original, Type originalType, Type overridingType, GameObject destination)
         {
             Component component = destination.AddComponent(overridingType);

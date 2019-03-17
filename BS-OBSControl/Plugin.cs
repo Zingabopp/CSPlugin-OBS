@@ -21,7 +21,7 @@ namespace BS_OBSControl
         public string Version => "0.0.1";
 
         private bool doesCIExist;
-        private static string _statusPosition = "0,3.2,3";//"-1,2,2.5";
+        private static string _statusPosition = "-1,3.5,2"; //"-1,2,2.5";
         public static string StatusPosition
         {
             get { return _statusPosition; }
@@ -30,7 +30,7 @@ namespace BS_OBSControl
 
         public void OnApplicationStart()
         {
-            Logger.LogLevel = LogLevel.Info;
+            Logger.LogLevel = LogLevel.Debug;
             Logger.Debug($"Starting...");
             //Checks if a IPlugin with the name in quotes exists, in case you want to verify a plugin exists before trying to reference it, or change how you do things based on if a plugin is present
             doesCIExist = IllusionInjector.PluginManager.Plugins.Any(x => x.Name == "Command-Interface");
@@ -42,6 +42,7 @@ namespace BS_OBSControl
                 var loader = new GameObject("OBSC_Loader").AddComponent<Loader>();
                 GameObject.DontDestroyOnLoad(loader.gameObject);
                 loader.LoadSuccess += OnLoadSuccess;
+                
 
             }
             else
@@ -60,10 +61,10 @@ namespace BS_OBSControl
         private void SceneManagerOnActiveSceneChanged(Scene oldScene, Scene newScene)
         {
 
-            if (newScene.name == "Menu")
+            if (newScene.name == "MenuCore")
             {
                 //Code to execute when entering The Menu
-
+                OBSControl.StatusText = "";
 
             }
 
@@ -80,8 +81,8 @@ namespace BS_OBSControl
         private void SceneManager_sceneLoaded(Scene scene, LoadSceneMode arg1)
         {
             //Create GameplayOptions/SettingsUI if using either
-            if (scene.name == "Menu")
-                UI.BasicUI.CreateUI();
+            //if (scene.name == "MenuCore")
+            //    UI.BasicUI.CreateUI();
 
         }
 
