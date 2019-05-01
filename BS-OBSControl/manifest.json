@@ -1,0 +1,13 @@
+{
+  "$schema": "https://github.com/nike4613/BSIPA-MetadataFileSchema/blob/master/Schema.json",
+  "name": "BS-OBSControl",
+  "id": "BS-OBSControl",
+  "description": "Controls OBS through the Command-Server.",
+  "version": "0.1.0",
+  "gameVersion": "0.13.2",
+  "author": "Zingabopp",
+  "dependsOn": {
+  },
+  "features": [
+  ]
+}

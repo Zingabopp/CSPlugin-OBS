@@ -1,6 +1,8 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using TMPro;
 using System.Text;
 using System.Threading.Tasks;
 using UnityEngine.SceneManagement;
@@ -20,7 +22,7 @@ namespace BS_OBSControl
             StartCoroutine(LoadToServer());
         }
 
-        public IEnumerator<WaitForSeconds> LoadToServer()
+        public IEnumerator LoadToServer()
         {
             yield return new WaitForSeconds(.5f);
             GameObject server = null;
@@ -35,8 +37,9 @@ namespace BS_OBSControl
                     {
                         Logger.Debug($"Found server GameObject: {server.name}");
                         var obsComp = server.AddComponent<OBSControl>();
+                        yield return new WaitUntil(() => Resources.FindObjectsOfTypeAll<TMP_FontAsset>().Any((TMP_FontAsset t) => t.name == "Teko-Medium SDF No Glow"));
                         loaded = true;
-                        LoadSuccess(this.gameObject, 
+                        Plugin.Instance.OnLoadSuccess(this.gameObject, 
                             server.GetComponents<ICommandPlugin>().Where(c => c.PluginName == "Command-Interface").FirstOrDefault(),
                             obsComp
                             );
@@ -55,6 +58,6 @@ namespace BS_OBSControl
             }
         }
 
-        public event Action<GameObject, ICommandPlugin, ICommandPlugin> LoadSuccess;
+        //public event Action<GameObject, ICommandPlugin, ICommandPlugin> LoadSuccess;
     }
 }

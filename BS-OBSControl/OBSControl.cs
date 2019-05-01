@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Threading;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -8,13 +10,16 @@ using UnityEngine.SceneManagement;
 using TMPro;
 using CommandPluginLib;
 using System.Collections;
+using CustomUI;
 
 namespace BS_OBSControl
 {
     class OBSControl : MonoBehaviour, ICommandPlugin
     {
+        public static OBSControl Instance;
         public string PluginName => Plugin.PluginName; // Name that identifies this plugin as a source/destination
         public const string Counterpart = "OBSControl"; // Destination plugin on Command-Server
+        public bool recordingCurrentLevel = false;
         private string appendText = "";
         private Dictionary<string, Action<object, string>> _commands;
 
@@ -60,6 +65,12 @@ namespace BS_OBSControl
         public void Awake()
         {
             Logger.Trace("OBSControl GameObject Awake()");
+            if (Instance != null)
+            {
+                Logger.Error("An instance of OBSControl already exists, this should not happen");
+                GameObject.Destroy(Instance);
+            }
+            Instance = this;
             BuildCommands();
             SceneManager.activeSceneChanged += SceneManagerOnActiveSceneChanged;
         }
@@ -79,6 +90,7 @@ namespace BS_OBSControl
             {
                 //Code to execute when entering The Menu
                 Logger.Debug("In menu");
+                recordingCurrentLevel = false;
 
             }
 
@@ -87,7 +99,8 @@ namespace BS_OBSControl
                 //Code to execute when entering actual gameplay
                 Logger.Debug("In GameCore");
                 appendText = "";
-                StartCoroutine(GetFileFormat());
+                if (!recordingCurrentLevel)
+                    StartCoroutine(GetFileFormat());
                 StartCoroutine(GameStatusSetup());
             }
         }
@@ -151,15 +164,22 @@ namespace BS_OBSControl
             }
         }
 
-        public IEnumerator<WaitUntil> GetFileFormat()
+        public IEnumerator<WaitUntil> GetFileFormat(IBeatmapLevel level = null)
         {
+            Logger.Trace("Trying to get the file format information for this level");
+            Stopwatch timer = new Stopwatch();
+            timer.Start();
             yield return new WaitUntil(() => {
                 Logger.Debug("GetFileFormat: LevelInfo is null");
-                return (GameStatus.LevelInfo != null);
+                if (level == null)
+                    level = GameStatus.LevelInfo;
+                return (level != null || timer.ElapsedMilliseconds > 400);
             });
-            var level = GameStatus.LevelInfo;
             string fileFormat = "";
-            fileFormat = $"{level.songName}-{level.songAuthorName}";
+            if (level != null)
+                fileFormat = $"{level.songName}-{level.songAuthorName}";
+            else
+                Logger.Warning("Couldn't get level info, using default recording file format");
             Logger.Debug($"Starting recording, file format: {fileFormat}");
             TryStartRecording(fileFormat);
         }
@@ -178,15 +198,19 @@ namespace BS_OBSControl
         {
             Logger.Trace("In OnDidFinish");
             BS_Utils.Plugin.LevelDidFinishEvent -= OnLevelFinished;
+            appendText = "";
             try
             {
+                float scorePercent = ((float) levelCompletionResults.score / GameStatus.MaxModifiedScore) * 100f;
+                string scoreStr = scorePercent.ToString("F3");
+                appendText = $"-{scoreStr.Substring(0, scoreStr.Length - 1)}{(levelCompletionResults.fullCombo ? "-FC" : "")}";
                 if (levelCompletionResults.levelEndStateType != LevelCompletionResults.LevelEndStateType.Cleared)
-                    appendText = "-failed";
-                else
                 {
-                    float scorePercent = ((float) levelCompletionResults.score / GameStatus.MaxModifiedScore) * 100f;
-                    string scoreStr = scorePercent.ToString("F3");
-                    appendText = $"-{scoreStr.Substring(0, scoreStr.Length - 1)}{(levelCompletionResults.fullCombo ? "-FC" : "")}";
+                    if (levelCompletionResults.levelEndStateType == LevelCompletionResults.LevelEndStateType.Quit ||
+                        levelCompletionResults.levelEndStateType == LevelCompletionResults.LevelEndStateType.Restart)
+                        appendText = appendText + "-QUIT";
+                    else
+                        appendText = appendText + "-FAILED";
                 }
             }
             catch (Exception ex)
@@ -194,6 +218,7 @@ namespace BS_OBSControl
                 Logger.Exception("Error appending file name", ex);
             }
             TryStopRecording();
+            recordingCurrentLevel = false;
         }
 
         public void AppendLastRecordingName(string suffix)
@@ -205,6 +230,7 @@ namespace BS_OBSControl
 
         public void TryStartRecording(string fileFormat = "")
         {
+            recordingCurrentLevel = true;
             var message = new MessageData(PluginName,
                 Counterpart,
                 fileFormat,
@@ -232,7 +258,20 @@ namespace BS_OBSControl
                 AppendLastRecordingName(appendText);
                 appendText = "";
             }
-            StatusText = status;
+
+            StatusText = FormatStatus(status);
+        }
+
+        public static string FormatStatus(string status)
+        {
+            status = status.ToLower();
+            switch (status)
+            {
+                case "started":
+                    status = "Recording";
+                    break;
+            }
+            return status;
         }
 
         public void RecRecFileFormat(object sender, string fmt)
@@ -271,7 +310,11 @@ namespace BS_OBSControl
             get
             {
                 if (_statusTextObj == null)
-                    _statusTextObj = CreateText(_statusText);
+                {
+                    _statusTextObj = CreateTMP(_statusText);
+                    _statusTextObj.transform.position = StringToVector3(Plugin.StatusPosition);
+                    FacePosition(_statusTextObj.transform, new Vector3(0, PlayerHeight, 0));
+                }
                 return _statusTextObj;
             }
             set { _statusTextObj = value; }
@@ -286,10 +329,17 @@ namespace BS_OBSControl
                 if (_statusTextObj == null && creatingText == false)
                 {
                     creatingText = true;
-                    StatusTextObj.text = _statusText;
+                    try
+                    {
+                        StatusTextObj.text = _statusText;
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Warning("Unable to create StatusTextObj");
+                    }
                     creatingText = false;
                 }
-                if (!creatingText)
+                if (!creatingText && StatusTextObj != null)
                     StatusTextObj.text = _statusText;
             }
         }
@@ -346,50 +396,84 @@ namespace BS_OBSControl
             return textMeshProUGUI;
         }
         */
-        public static TextMeshProUGUI CreateText(string text)
+        /// <summary>
+        /// Use this
+        /// </summary>
+        /// <param name="text"></param>
+        /// <returns></returns>
+        public static TextMeshProUGUI CreateTMP(string text)
         {
-            Canvas _canvas = new GameObject("OBSStatusCanvas").AddComponent<Canvas>();
-            _canvas.gameObject.transform.localScale = new Vector3(0.01f, 0.01f, 0.01f);
-            _canvas.renderMode = RenderMode.WorldSpace;
-            (_canvas.transform as RectTransform).sizeDelta = new Vector2(200f, 50f);
-            //FacePosition(_canvas.gameObject.transform, new Vector3(0, PlayerHeight, 0));
-            //_canvas.transform.position = StringToVector3(Plugin.StatusPosition);
-            return CreateText(_canvas, text, new Vector2(0f, 0f), (_canvas.transform as RectTransform).sizeDelta);
+            GameObject gameObject = new GameObject();
+            UnityEngine.Object.DontDestroyOnLoad(gameObject);
+            gameObject.transform.position = new Vector3(0f, 0f, 2.5f);
+            gameObject.transform.eulerAngles = new Vector3(0f, 0f, 0f);
+            gameObject.transform.localScale = new Vector3(0.01f, 0.01f, 0.01f);
+            Canvas canvas = gameObject.AddComponent<Canvas>();
+            canvas.renderMode = RenderMode.WorldSpace;
+            (canvas.transform as RectTransform).sizeDelta = new Vector2(200f, 50f);
+            TextMeshProUGUI textMeshProUGUI = CustomUI.BeatSaber.BeatSaberUI.CreateText(canvas.transform as RectTransform, text, new Vector2(0f, 0f), new Vector2(200f, 20f));
+            textMeshProUGUI.text = text;
+            textMeshProUGUI.fontSize = statusTextFontSize;
+            textMeshProUGUI.alignment = TextAlignmentOptions.Left;
+            return textMeshProUGUI;
         }
 
-        public static TextMeshProUGUI CreateText(Canvas parent, string text, Vector2 anchoredPosition, Vector2 sizeDelta)
-        {
-            GameObject gameObj = parent.gameObject; //new GameObject("OBSStatusText");
-            gameObj.SetActive(false);
-            GameObject.DontDestroyOnLoad(gameObj);
-            TextMeshProUGUI textMesh = gameObj.AddComponent<TextMeshProUGUI>();
-            /*
-            Teko-Medium SDF No Glow
-            Teko-Medium SDF
-            Teko-Medium SDF No Glow Fading
-            */
-            var font = Instantiate(Resources.FindObjectsOfTypeAll<TMP_FontAsset>().First(t => t.name == "Teko-Medium SDF No Glow"));
-            if (font == null)
-            {
-                Logger.Error("Could not locate font asset, unable to display text");
-                return null;
-            }
-            textMesh.font = font;
-            textMesh.rectTransform.SetParent(parent.transform as RectTransform, false);
-            textMesh.text = text;
-            textMesh.color = Color.white;
+        #region "Old TMP"
 
-            textMesh.rectTransform.anchorMin = new Vector2(0.5f, 0.5f);
-            textMesh.rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
-            textMesh.rectTransform.sizeDelta = sizeDelta;
-            textMesh.rectTransform.anchoredPosition = anchoredPosition;
-            textMesh.alignment = TextAlignmentOptions.Left;
-            gameObj.transform.position = StringToVector3(Plugin.StatusPosition);
-            FacePosition(textMesh.gameObject.transform, new Vector3(0, PlayerHeight, 0));
-            gameObj.SetActive(true);
-            return textMesh;
-        }
+        //public static TextMeshProUGUI CreateText(string text)
+        //{
+        //    Canvas _canvas = new GameObject("OBSStatusCanvas").AddComponent<Canvas>();
+        //    _canvas.gameObject.transform.localScale = new Vector3(0.01f, 0.01f, 0.01f);
+        //    _canvas.renderMode = RenderMode.WorldSpace;
+        //    (_canvas.transform as RectTransform).sizeDelta = new Vector2(200f, 50f);
+        //    //FacePosition(_canvas.gameObject.transform, new Vector3(0, PlayerHeight, 0));
+        //    //_canvas.transform.position = StringToVector3(Plugin.StatusPosition);
+        //    return CreateText(_canvas, text, new Vector2(0f, 0f), (_canvas.transform as RectTransform).sizeDelta);
+        //}
 
+        //public static TextMeshProUGUI CreateText(Canvas parent, string text, Vector2 anchoredPosition, Vector2 sizeDelta)
+        //{
+        //    GameObject gameObj = parent.gameObject; //new GameObject("OBSStatusText");
+        //    gameObj.SetActive(false);
+        //    GameObject.DontDestroyOnLoad(gameObj);
+        //    TextMeshProUGUI textMesh = gameObj.AddComponent<TextMeshProUGUI>();
+        //    /*
+        //    Teko-Medium SDF No Glow
+        //    Teko-Medium SDF
+        //    Teko-Medium SDF No Glow Fading
+        //    */
+        //    TMP_FontAsset font = null;
+        //    try
+        //    {
+        //        font = Instantiate(Resources.FindObjectsOfTypeAll<TMP_FontAsset>().First(t => t.name == "Teko-Medium SDF No Glow"));
+        //        if (font == null)
+        //        {
+        //            Logger.Error("Could not locate font asset, unable to display text");
+        //            return null;
+        //        }
+        //    } catch (Exception ex)
+        //    {
+        //        Logger.Exception("No TMP_FontAssets found, unable to display text.\n", ex);
+        //        return null;
+        //    }
+
+        //    textMesh.font = font;
+        //    textMesh.rectTransform.SetParent(parent.transform as RectTransform, false);
+        //    textMesh.text = text;
+        //    textMesh.color = Color.white;
+
+        //    textMesh.rectTransform.anchorMin = new Vector2(0.5f, 0.5f);
+        //    textMesh.rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
+        //    textMesh.rectTransform.sizeDelta = sizeDelta;
+        //    textMesh.rectTransform.anchoredPosition = anchoredPosition;
+        //    textMesh.alignment = TextAlignmentOptions.Left;
+        //    gameObj.transform.position = StringToVector3(Plugin.StatusPosition);
+        //    FacePosition(textMesh.gameObject.transform, new Vector3(0, PlayerHeight, 0));
+        //    gameObj.SetActive(true);
+        //    return textMesh;
+        //}
+
+        #endregion
 
         public static Vector3 StringToVector3(string vStr)
         {

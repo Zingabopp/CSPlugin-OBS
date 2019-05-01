@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using System.Timers;
 using CommandPluginLib;
 using OBSWebsocketDotNet;
+using static CSPluginOBS.Util;
 
 namespace CSPluginOBS
 {
@@ -84,10 +85,10 @@ namespace CSPluginOBS
         /// </summary>
         public void Initialize()
         {
-            Logger.LogLevel = LogLevel.Info;
+            Logger.LogLevel = LogLevel.Trace;
             Logger.ShortenSourceName = true;
             Logger.ShowTime = false;
-            Logger.Info("Starting OBSInterface plugin");
+            Logger.Info($"Starting OBSInterface plugin, LogLevel set to {Logger.LogLevel.ToString()}");
 
             BuildCommands();
             _obs = new OBSWebsocket();
@@ -149,6 +150,7 @@ namespace CSPluginOBS
 
         private void TryStartRecording(object sender, string fileNameFormat = "")
         {
+            //fileNameFormat = SafeFileName(_obs.GetRecordingFolder(), fileNameFormat, vidExt);
             SetRecFileFormat(this, fileNameFormat);
             if (isStopping)
             {
@@ -156,7 +158,15 @@ namespace CSPluginOBS
                 stopTimer.Stop();
             }
             if (!IsRecording)
+            {
                 _obs.StartRecording();
+                string msg = "Starting to record";
+                if (fileNameFormat == "")
+                    msg = msg + "...";
+                else
+                    msg = $"{msg} using filename {fileNameFormat}...";
+                Logger.Info(msg);
+            }
             else
             {
                 _obs.StopRecording();
@@ -276,10 +286,13 @@ namespace CSPluginOBS
                 fmt = "%CCYY-%MM-%DD %hh-%mm-%ss";
             else
             {
+
                 fmt = MakeValidFilename(fmt);
+                _lastRecFmt = fmt;
+                /*
                 var recFolder = _obs.GetRecordingFolder();
                 var fileString = fmt;
-                _lastRecFmt = fmt;
+                
                 var file = new FileInfo(JoinPaths(recFolder, fileString) + vidExt);
                 int index = 2;
                 while (file.Exists)
@@ -289,8 +302,9 @@ namespace CSPluginOBS
                     file = new FileInfo(newString + vidExt);
                     index++;
                 }
-                fmt = fileString;
-                _lastRecFile = fileString;
+                */
+                fmt = SafeFileName(_obs.GetRecordingFolder(), fmt, vidExt);
+                _lastRecFile = fmt;
             }
             _obs.SetFilenameFormatting(MakeValidFilename(fmt));
 
@@ -306,72 +320,39 @@ namespace CSPluginOBS
                 try
                 {
                     string newName = _lastRecFmt + MakeValidFilename(suffix);
-                    newFullName = JoinPaths(_obs.GetRecordingFolder().Replace(@"/", @"\"), newName + vidExt);
-                    int index = 2;
-                    var newFile = new FileInfo(newFullName);
+                    string finalName = newName + vidExt;
+                    string recFolder = _obs.GetRecordingFolder().Replace(@"/", @"\");
+                    Logger.Trace($"Recording folder is: {recFolder}");
+                    //newFullName = JoinPaths(_obs.GetRecordingFolder().Replace(@"/", @"\"), finalName);
+                    newFullName = JoinPaths(recFolder, SafeFileName(recFolder, newName, vidExt) + vidExt);
+                    //int index = 2;
+
+                    //var newFile = new FileInfo(newFullName);
+                    /*
                     while (newFile.Exists)
                     {
-                        newFullName = JoinPaths(_obs.GetRecordingFolder().Replace(@"/", @"\"), $"{newName}_{index}{vidExt}");
+                        finalName = $"{newName}_{index}{vidExt}";
+                        newFullName = JoinPaths(recFolder, finalName);
+                        Logger.Trace($"{newFile.FullName} exists, trying {newFullName}");
+                        newFile = new FileInfo(newFullName);
+                        index++;
                     }
+                    */
+                    
+                    Logger.Trace($"Moving {file.FullName} to\n      {newFullName}");
                     file.MoveTo(newFullName);
                 }
-                catch(Exception ex)
+                catch (Exception ex)
                 {
                     Logger.Exception("Exception in appendfile\n", ex);
                 }
-                
+
             }
         }
 
-        public static string MakeValidFilename(string text)
-        {
-            text = text.Replace('"', '”'); // U+201D right double quotation mark
-            text = text.Replace('/', '⁄');  // U+2044 fraction slash
-            text = text.Replace('\'', '’'); // U+2019 right single quotation mark
-            text = text.Replace('\\', '_');
-            text = text.Replace('<', '‹');
-            text = text.Replace('>', '›');
-            text = text.Replace('|', '‖');
-            text = text.Replace(':', '⁚');
-            text = text.Replace('*', '⁎');
-            text = text.Replace('?', '？');
-            text = text.Replace(' ', '_');
 
-            foreach (char c in System.IO.Path.GetInvalidFileNameChars())
-            {
-                text = text.Replace(c, '_');
-            }
-            return text;
-        }
 
-        /// <summary>
-        /// Joins two parts of a path together to correct for whether or not the parts end/start with "\"
-        /// </summary>
-        /// <param name="first"></param>
-        /// <param name="second"></param>
-        /// <returns>A string path from the combined parts</returns>
-        public static string JoinPaths(string first, string second)
-        {
-            if (first == "" | second == "")
-                return first + second;
-            string newPath = first;
-            var endsWithSlash = newPath.EndsWith(@"\");
-            if (endsWithSlash)
-            {
-                // First part ends with "\"
-                if (second.StartsWith(@"\"))
-                    newPath = newPath + second.Substring(1);
-                else
-                    newPath = newPath + second;
-            }
-            else
-                // First part doesn't end with "\"
-                if (second.StartsWith(@"\"))
-                newPath = newPath + second;
-            else
-                newPath = newPath + @"\" + second;
-            return newPath;
-        }
+
 
         private string GetRecFileFormat()
         {
@@ -414,7 +395,10 @@ namespace CSPluginOBS
             }
             if (state != _lastRecState)
             {
-                Logger.Debug($"Recording state changed: {state}");
+                if (newState == OutputState.Started || newState == OutputState.Stopped)
+                    Logger.Info($"Recording state changed: {state}");
+                else
+                    Logger.Debug($"Recording state changed: {state}");
                 MessageReady(this, new MessageData(PluginName, "OBSControl", newState.ToString(), Key_RecordStatus));
             }
             _lastRecState = state;

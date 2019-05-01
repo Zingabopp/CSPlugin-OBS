@@ -9,7 +9,7 @@
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>BS_OBSControl</RootNamespace>
     <AssemblyName>BS-OBSControl</AssemblyName>
-    <TargetFrameworkVersion>v4.6</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.6.1</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <TargetFrameworkProfile />
   </PropertyGroup>
@@ -33,9 +33,15 @@
     <Prefer32Bit>false</Prefer32Bit>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="0Harmony">
+      <HintPath>References\Managed\0Harmony.dll</HintPath>
+    </Reference>
     <Reference Include="Assembly-CSharp">
       <HintPath>.\References\Managed\Assembly-CSharp.dll</HintPath>
       <Private>False</Private>
+    </Reference>
+    <Reference Include="BeatSaberCustomUI">
+      <HintPath>References\Plugins\BeatSaberCustomUI.dll</HintPath>
     </Reference>
     <Reference Include="BS_Utils">
       <HintPath>References\Plugins\BS_Utils.dll</HintPath>
@@ -47,6 +53,12 @@
     <Reference Include="IllusionPlugin">
       <HintPath>.\References\Managed\IllusionPlugin.dll</HintPath>
       <Private>False</Private>
+    </Reference>
+    <Reference Include="IPA.Injector">
+      <HintPath>References\Managed\IPA.Injector.dll</HintPath>
+    </Reference>
+    <Reference Include="IPA.Loader">
+      <HintPath>References\Managed\IPA.Loader.dll</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
@@ -84,6 +96,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="GameStatus.cs" />
+    <Compile Include="Harmony\DidPressPlay.cs" />
     <Compile Include="Loader.cs" />
     <Compile Include="OBSControl.cs" />
     <Compile Include="Plugin.cs" />
@@ -94,6 +107,7 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="CreateJunctions.bat" />
+    <EmbeddedResource Include="manifest.json" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\CSPlugin-OBS\libs\CommandPluginLib\CommandPluginLib\CommandPluginLib.csproj">
