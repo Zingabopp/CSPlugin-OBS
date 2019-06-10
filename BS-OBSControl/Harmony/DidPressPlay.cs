@@ -19,6 +19,8 @@ namespace BS_OBSControl.Harmony
     {
         static bool Prefix(SoloFreePlayFlowCoordinator __instance, ref StandardLevelDetailViewController viewController)
         {
+            if (!OBSControl.IsConnected)
+            { return true; }
             Logger.Trace("In SoloFreePlayFlowCoordinator.HandleLevelDetailViewControllerDidPressPlayButton()");
             var levelView = viewController.GetPrivateField<StandardLevelDetailView>("_standardLevelDetailView");
             if (levelView != null)
@@ -29,6 +31,7 @@ namespace BS_OBSControl.Harmony
 
         private static IEnumerator DelayedLevelStart(SoloFreePlayFlowCoordinator coordinator, IBeatmapLevel levelInfo, UnityEngine.UI.Button playButton)
         {
+
             Logger.Trace("Delaying level start by 2 seconds...");
             if (levelInfo != null)
                 Logger.Debug($"levelInfo is not null: {levelInfo.songName} by {levelInfo.levelAuthorName}");

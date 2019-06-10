@@ -14,14 +14,15 @@ using CustomUI;
 
 namespace BS_OBSControl
 {
-    class OBSControl : MonoBehaviour, ICommandPlugin
+    public class OBSControl : MonoBehaviour, ICommandPlugin
     {
         public static OBSControl Instance;
         public string PluginName => Plugin.PluginName; // Name that identifies this plugin as a source/destination
         public const string Counterpart = "OBSControl"; // Destination plugin on Command-Server
         public bool recordingCurrentLevel = false;
-        private string appendText = "";
+        private StringBuilder appendText = new StringBuilder();
         private Dictionary<string, Action<object, string>> _commands;
+        public static bool IsConnected = false;
 
         /// <summary>
         /// Dictionary of commands this plugin can receive.
@@ -57,7 +58,10 @@ namespace BS_OBSControl
         {
             Logger.Trace($"Received message:\n{e.ToString()}");
             if (e.Destination == PluginName)
+            {
+                IsConnected = true;
                 Commands[e.Flag](sender, e.Data);
+            }
             else
                 Logger.Debug($"Discarding message, we are not the destination");
         }
@@ -98,7 +102,7 @@ namespace BS_OBSControl
             {
                 //Code to execute when entering actual gameplay
                 Logger.Debug("In GameCore");
-                appendText = "";
+                appendText.Clear();
                 if (!recordingCurrentLevel)
                     StartCoroutine(GetFileFormat());
                 StartCoroutine(GameStatusSetup());
@@ -164,6 +168,27 @@ namespace BS_OBSControl
             }
         }
 
+        private PlayerDataModelSO _playerData;
+        private PlayerDataModelSO PlayerData
+        {
+            get
+            {
+                if (_playerData == null)
+                {
+                    _playerData = Resources.FindObjectsOfTypeAll<PlayerDataModelSO>().FirstOrDefault();
+                    if (_playerSettings != null)
+                    {
+                        Logger.Debug("Found PlayerData");
+                    }
+                    else
+                        Logger.Warning($"Unable to find PlayerData");
+                }
+                else
+                    Logger.Trace("PlayerData already exists, don't need to find it");
+                return _playerData;
+            }
+        }
+
         public IEnumerator<WaitUntil> GetFileFormat(IBeatmapLevel level = null)
         {
             Logger.Trace("Trying to get the file format information for this level");
@@ -198,19 +223,29 @@ namespace BS_OBSControl
         {
             Logger.Trace("In OnDidFinish");
             BS_Utils.Plugin.LevelDidFinishEvent -= OnLevelFinished;
-            appendText = "";
+            appendText.Clear();
             try
             {
-                float scorePercent = ((float) levelCompletionResults.score / GameStatus.MaxModifiedScore) * 100f;
+                float scorePercent = ((float) levelCompletionResults.rawScore / GameStatus.MaxModifiedScore) * 100f;
                 string scoreStr = scorePercent.ToString("F3");
-                appendText = $"-{scoreStr.Substring(0, scoreStr.Length - 1)}{(levelCompletionResults.fullCombo ? "-FC" : "")}";
+                appendText.Append($"-{scoreStr.Substring(0, scoreStr.Length - 1)}");
+                PlayerLevelStatsData stats = PlayerData.currentLocalPlayer.GetPlayerLevelStatsData(
+                    GameStatus.LevelInfo.levelID, GameStatus.difficultyBeatmap.difficulty, GameStatus.difficultyBeatmap.parentDifficultyBeatmapSet.beatmapCharacteristic);
+                if (stats.playCount == 0)
+                    appendText.Append("-1st");
+                else
+                    Logger.Debug($"PlayCount for {GameStatus.LevelInfo.levelID} is {stats.playCount}");
+                if(levelCompletionResults.fullCombo)
+                    appendText.Append("-FC");
+                
                 if (levelCompletionResults.levelEndStateType != LevelCompletionResults.LevelEndStateType.Cleared)
                 {
-                    if (levelCompletionResults.levelEndStateType == LevelCompletionResults.LevelEndStateType.Quit ||
-                        levelCompletionResults.levelEndStateType == LevelCompletionResults.LevelEndStateType.Restart)
-                        appendText = appendText + "-QUIT";
+
+                    if (levelCompletionResults.levelEndAction == LevelCompletionResults.LevelEndAction.Quit ||
+                        levelCompletionResults.levelEndAction == LevelCompletionResults.LevelEndAction.Restart)
+                        appendText.Append("-QUIT");
                     else
-                        appendText = appendText + "-FAILED";
+                        appendText.Append("-FAILED");
                 }
             }
             catch (Exception ex)
@@ -253,10 +288,10 @@ namespace BS_OBSControl
         public void OnRecordStatusChange(object sender, string status)
         {
             Logger.Debug($"Record status change: {status}");
-            if (status.ToLower().Contains("stopped") && !(appendText == ""))
+            if (status.ToLower().Contains("stopped") && !(appendText.ToString() == ""))
             {
-                AppendLastRecordingName(appendText);
-                appendText = "";
+                AppendLastRecordingName(appendText.ToString());
+                appendText.Clear();
             }
 
             StatusText = FormatStatus(status);

@@ -23,7 +23,14 @@ namespace CSPluginOBS
         private const string vidExt = ".mkv";
         private static string _lastRecState = "";
         private OutputState recState;
-        private bool isConnected
+        private bool isConnectedBeatSaber
+        {
+            get
+            {
+                return true;
+            }
+        }
+        private bool isConnectedOBS
         {
             get
             {
@@ -124,7 +131,7 @@ namespace CSPluginOBS
         {
             get
             {
-                if (isConnected)
+                if (isConnectedOBS)
                     return _obs.GetStreamingStatus().IsRecording;
                 else
                     return false;
@@ -225,7 +232,7 @@ namespace CSPluginOBS
             timer.Elapsed += (source, e) => {
 
                 Logger.Info($"Attempting to connect to OBS ({conAttempts})...");
-                if (!isConnected && ((conAttempts < maxAttempts) || infiniteAttempts))
+                if (!isConnectedOBS && ((conAttempts < maxAttempts) || infiniteAttempts))
                 {
                     try
                     {
@@ -244,7 +251,7 @@ namespace CSPluginOBS
                     {
                         Logger.Exception("OBS Connection failed...", ex);
                     }
-                    if (!isConnected && ((conAttempts <= maxAttempts) || infiniteAttempts))
+                    if (!isConnectedOBS && ((conAttempts <= maxAttempts) || infiniteAttempts))
                     {
                         Logger.Trace($"Failed to connect to OBS ({conAttempts})...");
                         conAttempts++;

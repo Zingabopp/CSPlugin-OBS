@@ -73,9 +73,9 @@ namespace BS_OBSControl
         {
             try
             {
-                MaxScore = ScoreController.MaxScoreForNumberOfNotes(difficultyBeatmap.beatmapData.notesCount);
+                MaxScore = ScoreController.MaxRawScoreForNumberOfNotes(difficultyBeatmap.beatmapData.notesCount);
                 Logger.Debug($"MaxScore: {MaxScore}");
-                MaxModifiedScore = ScoreController.GetScoreForGameplayModifiers(GameStatus.MaxScore, gameSetupData.gameplayModifiers, GameStatus.GpModSO);
+                MaxModifiedScore = ScoreController.MaxModifiedScoreForMaxRawScore(GameStatus.MaxScore, gameSetupData.gameplayModifiers, GameStatus.GpModSO);
                 Logger.Debug($"MaxModifiedScore: {MaxModifiedScore}");
             } catch(Exception ex)
             {
