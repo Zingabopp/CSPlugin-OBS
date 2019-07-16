@@ -154,7 +154,7 @@ namespace BS_OBSControl
         {
             Console.ForegroundColor = ConsoleColor.Magenta;
             //Console.WriteLine("[" + LoggerName + " @ " + DateTime.Now.ToString("HH:mm") + "] " + String.Format("{0}-{1}-{2}\n{3}", text, e.GetType().FullName, e.Message, e.StackTrace));
-            Console.WriteLine($"[{Path.GetFileName(file)}_{member}({line}) @ {DateTime.Now.ToString("HH:mm")} - Info] {text} - {e.GetType().FullName}-{e.Message}\n{e.StackTrace}");
+            Console.WriteLine($"[{Path.GetFileName(file)}_{member}({line}) @ {DateTime.Now.ToString("HH:mm")} - Exception] {text} - {e.GetType().FullName}-{e.Message}\n{e.StackTrace}");
             ResetForegroundColor();
         }
 

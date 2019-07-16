@@ -202,7 +202,7 @@ namespace BS_OBSControl
             });
             string fileFormat = "";
             if (level != null)
-                fileFormat = $"{level.songName}-{level.songAuthorName}";
+                fileFormat = $"{level.songName}-{level.levelAuthorName}";
             else
                 Logger.Warning("Couldn't get level info, using default recording file format");
             Logger.Debug($"Starting recording, file format: {fileFormat}");
